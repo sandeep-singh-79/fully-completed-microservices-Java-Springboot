@@ -22,6 +22,7 @@ jobs:
           PACT_BROKER_BASIC_AUTH_PASSWORD: admin
         options: >-
           --health-cmd "curl -f http://localhost:9292 || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -55,10 +56,17 @@ jobs:
           cd services/payment
           mvn clean test -Dtest=OrderServiceContractTest
 
-      # Use Docker-based Pact CLI for cross-platform reliability
+      - name: Ensure Pact Files Were Generated
+        run: |
+          echo "Checking Pact files..."
+          if [ -z "$(ls -A pacts/*.json 2>/dev/null)" ]; then
+            echo "::error::No Pact files found in the 'pacts' directory."
+            exit 1
+          fi
+
       - name: Publish Pacts to Pact Broker (Docker)
         run: |
-          docker run --rm -v ${{ github.workspace }}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version ${{ github.sha }}
+          docker run --rm -v ${{ github.workspace }}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version "${{ github.sha }}-${{ github.run_number }}" --tag "${GITHUB_REF##*/}" --tag "dev"
 
       - name: Validate Pact Broker UI
         run: |
