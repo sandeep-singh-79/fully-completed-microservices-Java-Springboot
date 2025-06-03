@@ -1,0 +1,73 @@
+name: Pact CDC CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  pact-cdc:
+    runs-on: ubuntu-latest
+    services:
+      pact-broker:
+        image: pactfoundation/pact-broker:latest
+        ports:
+          - 9292:9292
+        env:
+          PACT_BROKER_DATABASE_ADAPTER: sqlite
+          PACT_BROKER_DATABASE_NAME: /tmp/pact_broker.sqlite
+          PACT_BROKER_LOG_LEVEL: INFO
+          PACT_BROKER_BASIC_AUTH_USERNAME: admin
+          PACT_BROKER_BASIC_AUTH_PASSWORD: admin
+        options: >-
+          --health-cmd "curl -f http://localhost:9292 || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Order Service Contract Tests
+        run: |
+          cd services/order
+          mvn clean test -Dtest=ProductServiceContractTest
+
+      - name: Run Payment Service Contract Tests
+        run: |
+          cd services/payment
+          mvn clean test -Dtest=OrderServiceContractTest
+
+      # Use Docker-based Pact CLI for cross-platform reliability
+      - name: Publish Pacts to Pact Broker (Docker)
+        run: |
+          docker run --rm -v ${{ github.workspace }}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version ${{ github.sha }}
+
+      - name: Validate Pact Broker UI
+        run: |
+          curl -u admin:admin -f http://localhost:9292 || exit 1
+
+      - name: Validate Order-Service -> Product-Service Pact Presence
+        run: |
+          curl -u admin:admin -f http://localhost:9292/pacts/provider/product-service/consumer/order-service/latest || exit 1
+
+      - name: Validate Payment-Service -> Order-Service Pact Presence
+        run: |
+          curl -u admin:admin -f http://localhost:9292/pacts/provider/order-service/consumer/payment-service/latest || exit 1

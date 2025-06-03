@@ -96,6 +96,46 @@ docker build -t <microservice-name>:latest .
 docker run -d -p <port>:<container-port> <microservice-name>:latest
 ```
 
+## Pact Contract Testing & CI/CD Integration
+
+### Recent Changes
+- Added consumer-driven contract tests for Order and Payment services using Pact V4 DSL and JUnit5.
+- Configured Maven to output pact files to the root `pacts/` directory for both services.
+- Set up a Pact Broker using Docker Compose (`pact-broker` service on port 9292).
+- Added a robust GitHub Actions workflow (`.github/workflows/pact-cdc.yml`) that:
+  - Starts the Pact Broker as a service
+  - Runs contract tests for both services
+  - Publishes pacts to the broker using the Docker-based Pact CLI (cross-platform reliability)
+  - Validates the broker UI and ensures the presence of the latest pacts
+- Updated `.gitignore` to only track root-level pact files and ignore build output pacts.
+
+### Pact File Management
+- Pact files in `/pacts` are overwritten on each test run and should be reviewed before committing.
+- Do not manually edit pact files; always generate them via tests.
+- Provider verification is the next recommended step for full CDC workflow.
+
+### How to Run Locally
+1. Start the Pact Broker:
+   ```powershell
+   docker-compose up pact-broker
+   ```
+2. Run contract tests for both services to generate pacts:
+   ```powershell
+   cd services/order; mvn clean test -Dtest=ProductServiceContractTest
+   cd ../payment; mvn clean test -Dtest=OrderServiceContractTest
+   ```
+3. Publish pacts (if Pact CLI is not working on Windows, use Docker):
+   ```powershell
+   docker run --rm -v ${PWD}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version 1.0.0
+   ```
+4. Visit [http://localhost:9292](http://localhost:9292) (admin/admin) to view contracts.
+
+### CI/CD
+- See `.github/workflows/pact-cdc.yml` for full automation of contract testing and publishing.
+
+---
+For more details, see the comments in the workflow and contract test files.
+
 ## Contributing
 
 1. Fork the repository.
@@ -110,19 +150,15 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-For any questions or feedback, please open an issue in the repository.
+For any questions or feedback, please open an issue in the repository or contact:
 
-Thank you,
-Pramitha Jayasooriya
-https://pramithamj.live
+Sandeep Singh
+- Blog & Site: [https://ssandeep79.wixsite.com/experimentsintesting](https://ssandeep79.wixsite.com/experimentsintesting)
+- GitHub: [https://github.com/sandeep-singh-79/fully-completed-microservices-Java-Springboot](https://github.com/sandeep-singh-79/fully-completed-microservices-Java-Springboot)
 
-<!--
-buy me a coffee
--->
-## Donation
+---
 
-***If you like what I do, maybe consider buying me a coffee***
+### Attribution
 
-<a href="https://buymeacoffee.com/lpramithamm"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-red.png" alt="Buy Me A Coffee" style="height: 35px !important; width: 120px !important;"></a>
-
-***
+This repository is a fork of the original project by Pramitha Jayasooriya:
+- [https://github.com/PramithaMJ/fully-completed-microservices](https://github.com/PramithaMJ/fully-completed-microservices)

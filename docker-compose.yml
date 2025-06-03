@@ -94,6 +94,22 @@ services:
       - 1080:1080
       - 1025:1025
 
+  pact-broker:
+    image: pactfoundation/pact-broker:latest
+    container_name: pact_broker
+    ports:
+      - "9292:9292"
+    environment:
+      PACT_BROKER_DATABASE_ADAPTER: "sqlite"
+      PACT_BROKER_DATABASE_NAME: "/tmp/pact_broker.sqlite"
+      PACT_BROKER_LOG_LEVEL: "INFO"
+      PACT_BROKER_BASIC_AUTH_USERNAME: "admin"
+      PACT_BROKER_BASIC_AUTH_PASSWORD: "admin"
+    volumes:
+      - pact-broker-data:/tmp
+    networks:
+      - microservices-net
+
 networks:
   microservices-net:
     driver: bridge
@@ -102,3 +118,4 @@ volumes:
   postgres:
   pgadmin:
   mongo:
+  pact-broker-data:
