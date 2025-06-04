@@ -22,6 +22,16 @@ jobs:
           PACT_BROKER_BASIC_AUTH_PASSWORD: admin
         options: >-
           --health-cmd "curl -f http://localhost:9292 || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
+      wiremock:
+        image: wiremock/wiremock:2.35.0
+        ports:
+          - 8080:8080
+        volumes:
+          - ${{github.workspace}}/wiremock-stubs:/home/wiremock
+        env:
+          WIREMOCK_OPTIONS: "--global-response-templating --verbose"
+        options: >-
+          --health-cmd "curl -f http://localhost:8080/__admin/mappings || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
       - name: Checkout code
@@ -85,9 +95,41 @@ jobs:
         run: |
           cd services/product
           mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest
+      
+      # Publish Provider Verification Results for Product Service
+      - name: Publish Provider Verification Results - Product Service
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/workspace pactfoundation/pact-cli:latest broker publish-verification-results \
+            --broker-base-url http://localhost:9292 \
+            --broker-username admin \
+            --broker-password admin \
+            --provider-app-version "${{ github.sha }}-${{ github.run_number }}" \
+            --success
+      
+      # Validate Provider Verification Results - Product Service
+      - name: Validate Provider Verification Results - Product Service
+        run: |
+          curl -u admin:admin -f http://localhost:9292/pacts/provider/product-service/consumer/order-service/latest-verification || exit 1
+          echo "Provider verification results for Product Service successfully published to the Pact Broker."
 
       # Provider verification for Order Service (as provider for Payment Service)
       - name: Provider Verification - Order Service
         run: |
           cd services/order
           mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest
+      
+      # Publish Provider Verification Results for Order Service
+      - name: Publish Provider Verification Results - Order Service
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/workspace pactfoundation/pact-cli:latest broker publish-verification-results \
+            --broker-base-url http://localhost:9292 \
+            --broker-username admin \
+            --broker-password admin \
+            --provider-app-version "${{ github.sha }}-${{ github.run_number }}" \
+            --success
+      
+      # Validate Provider Verification Results for Order Service
+      - name: Validate Provider Verification Results - Order Service
+        run: |
+          curl -u admin:admin -f http://localhost:9292/pacts/provider/order-service/consumer/payment-service/latest-verification || exit 1
+          echo "Provider verification results for Order Service successfully published to the Pact Broker."
