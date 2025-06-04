@@ -110,6 +110,15 @@ services:
     networks:
       - microservices-net
 
+  wiremock:
+    image: wiremock/wiremock:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./wiremock-stubs:/home/wiremock
+    networks:
+      - microservices-net
+
 networks:
   microservices-net:
     driver: bridge

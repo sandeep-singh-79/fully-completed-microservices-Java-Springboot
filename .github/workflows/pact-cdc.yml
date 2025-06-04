@@ -79,3 +79,15 @@ jobs:
       - name: Validate Payment-Service -> Order-Service Pact Presence
         run: |
           curl -u admin:admin -f http://localhost:9292/pacts/provider/order-service/consumer/payment-service/latest || exit 1
+
+      # Provider verification for Product Service (as provider for Order Service)
+      - name: Provider Verification - Product Service
+        run: |
+          cd services/product
+          mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest
+
+      # Provider verification for Order Service (as provider for Payment Service)
+      - name: Provider Verification - Order Service
+        run: |
+          cd services/order
+          mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest

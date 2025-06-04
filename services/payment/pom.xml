@@ -133,9 +133,9 @@
 				</configuration>
 			</plugin>
 			<plugin>
-				<groupId>au.com.dius.pact</groupId>
-				<artifactId>pact-jvm-provider-maven</artifactId>
-				<version>4.6.15</version>
+				<groupId>au.com.dius.pact.provider</groupId>
+				<artifactId>maven</artifactId>
+				<version>4.1.11</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -147,7 +147,6 @@
 						<PACT_VERIFIER_LOGLEVEL>DEBUG</PACT_VERIFIER_LOGLEVEL>
 						<pact.rootDir>${project.basedir}/../../pacts</pact.rootDir>
 					</systemPropertyVariables>
-					<directory>../../pacts</directory>
 				</configuration>
 			</plugin>
 		</plugins>
