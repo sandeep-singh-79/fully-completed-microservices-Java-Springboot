@@ -19,33 +19,37 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class OrderProviderPactVerificationTest {
 
     @BeforeEach
-    void before (PactVerificationContext context) {
+    void before(PactVerificationContext context) {
         context.setTarget(new au.com.dius.pact.provider.junit5.HttpTestTarget("localhost", 8080, "/"));
     }
 
     @TestTemplate
     @ExtendWith(PactVerificationInvocationContextProvider.class)
-    void pactVerification (PactVerificationContext context) {
+    void pactVerification(PactVerificationContext context) {
         context.verifyInteraction();
     }
 
     @State("order with ID 501 exists")
-    public void orderWithId501Exists () {
+    public void orderWithId501Exists() {
+        System.out.println("[PACT STATE] Setting up: order with ID 501 exists");
         // Set up DB or mocks so that order 501 exists with amount 120.5, status PAID
     }
 
     @State("invalid order data")
-    public void invalidOrderData () {
+    public void invalidOrderData() {
+        System.out.println("[PACT STATE] Setting up: invalid order data");
         // Set up DB or mocks so that invalid order data will trigger a 400 response
     }
 
     @State("order with ID 999 does not exist")
-    public void orderWithId999DoesNotExist () {
+    public void orderWithId999DoesNotExist() {
+        System.out.println("[PACT STATE] Setting up: order with ID 999 does not exist");
         // Set up DB or mocks so that order 999 does not exist and returns 404
     }
 
     @State("valid order data")
-    public void validOrderData () {
+    public void validOrderData() {
+        System.out.println("[PACT STATE] Setting up: valid order data");
         // Set up DB or mocks so that valid order data will trigger a 201 response
     }
 }

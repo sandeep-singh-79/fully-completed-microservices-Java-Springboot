@@ -135,7 +135,13 @@
 			<plugin>
 				<groupId>au.com.dius.pact.provider</groupId>
 				<artifactId>maven</artifactId>
-				<version>4.1.11</version>
+				<version>4.3.15</version>
+				<configuration>
+					<pactBrokerUrl>http://localhost:9292</pactBrokerUrl>
+					<pactBrokerUsername>admin</pactBrokerUsername>
+					<pactBrokerPassword>admin</pactBrokerPassword>
+					<publishVerificationResults>true</publishVerificationResults>
+				</configuration>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -146,6 +152,7 @@
 					<systemPropertyVariables>
 						<PACT_VERIFIER_LOGLEVEL>DEBUG</PACT_VERIFIER_LOGLEVEL>
 						<pact.rootDir>${project.basedir}/../../pacts</pact.rootDir>
+						<pact.verifier.publishResults>true</pact.verifier.publishResults>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

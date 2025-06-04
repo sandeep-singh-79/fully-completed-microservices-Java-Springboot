@@ -104,14 +104,18 @@ docker run -d -p <port>:<container-port> <microservice-name>:latest
 - Configured Maven to output pact files to the root `pacts/` directory for both services.
 - Set up a Pact Broker using Docker Compose (`pact-broker` service on port 9292).
 - Added a robust GitHub Actions workflow (`.github/workflows/pact-cdc.yml`) that:
-  - Starts the Pact Broker as a service
+  - Starts the Pact Broker and WireMock using **docker-compose** (not the GitHub Actions `services:` block)
+  - Waits for both services to be healthy before running tests
   - Runs contract tests for both services
   - Publishes pacts to the broker using the Docker-based Pact CLI (cross-platform reliability)
   - Validates the broker UI and ensures the presence of the latest pacts
   - Runs provider verification for both product and order services
   - Publishes provider verification results to the Pact Broker and validates their presence
+  - Cleans up containers at the end of the workflow
 - Updated `.gitignore` to only track root-level pact files and ignore build output pacts.
 - Provider verification is performed using WireMock to simulate provider APIs, ensuring CDC tests are isolated and repeatable.
+
+> **Note:** If you encounter container startup issues in CI, using `docker-compose` for service orchestration is more reliable than the `services:` block in GitHub Actions.
 
 ### Pact File Management
 
@@ -166,20 +170,27 @@ docker run -d -p <port>:<container-port> <microservice-name>:latest
 
 ### Running All CDC Tests Locally (Recommended Flow)
 
-1. Start the Pact Broker:
+1. Start the Pact Broker and WireMock:
    ```powershell
-   docker-compose up -d pact-broker
+   docker-compose up -d pact-broker wiremock
    ```
 2. Run all consumer and provider contract tests as above.
 3. Publish all generated pacts and provider verification results as above.
 4. Visit [http://localhost:9292](http://localhost:9292) (admin/admin) to view contracts and verification status.
+5. When finished, stop containers:
+   ```powershell
+   docker-compose down
+   ```
 
 ### CI/CD: GitHub Actions Pipeline
 
 - The `.github/workflows/pact-cdc.yml` workflow automates:
+  - Starting Pact Broker and WireMock using docker-compose
+  - Waiting for service readiness
   - Running all consumer and provider contract tests
   - Publishing pacts and provider verification results to the Pact Broker
   - Validating the presence and verification status of all contracts
+  - Cleaning up containers at the end
 - The workflow runs on every push and pull request to `main`.
 - See the workflow file for details and step-by-step automation.
 

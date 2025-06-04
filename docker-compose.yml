@@ -116,6 +116,8 @@ services:
       - "8080:8080"
     volumes:
       - ./wiremock-stubs:/home/wiremock
+    environment:
+      - WIREMOCK_OPTIONS=--global-response-templating --verbose
     networks:
       - microservices-net
 
