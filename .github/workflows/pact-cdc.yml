@@ -7,10 +7,15 @@ on:
     branches: [ main ]
 
 jobs:
-  pact-cdc:
+  pact-tests:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        environment: [dev]
+
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -18,7 +23,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-
+      
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -26,7 +31,7 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
-
+  
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,14 +41,12 @@ jobs:
         run: |
           curl -fsSL https://get.docker.com -o get-docker.sh
           sudo sh get-docker.sh
-        continue-on-error: false
-
+  
       - name: Install Docker Compose
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/v2.3.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
-        continue-on-error: false
 
       - name: Start Pact Broker and WireMock with Docker Compose
         run: |
@@ -81,7 +84,7 @@ jobs:
         run: |
           cd services/payment
           mvn clean test -Dtest=OrderServiceContractTest
-
+      
       - name: Ensure Pact Files Were Generated
         run: |
           echo "Checking Pact files..."
@@ -90,45 +93,64 @@ jobs:
             exit 1
           fi
 
+      - name: Ensure '${{ matrix.environment }}' Environment Exists in Pact Broker
+        run: |
+          set -e
+          ENV_NAME="${{ matrix.environment }}"
+          # Set production flag based on environment name
+          if [ "$ENV_NAME" = "prod" ] || [ "$ENV_NAME" = "production" ]; then
+            PRODUCTION_FLAG=true
+          else
+            PRODUCTION_FLAG=false
+          fi
+          # Use jq for robust environment existence check
+          ENV_EXISTS=$(docker run --rm --network=host pactfoundation/pact-cli:latest broker list-environments --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --output json | jq -r --arg name "$ENV_NAME" '.[] | select(.name == $name) | .name')
+          if [ -z "$ENV_EXISTS" ]; then
+            echo "Environment '$ENV_NAME' does not exist. Creating..."
+            docker run --rm --network=host pactfoundation/pact-cli:latest broker create-environment --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --name "$ENV_NAME" --display-name "$ENV_NAME" --production $PRODUCTION_FLAG
+          else
+            echo "Environment '$ENV_NAME' already exists. Skipping creation."
+          fi
+
       - name: Publish Pacts to Pact Broker (Docker)
         run: |
-          docker run --rm --network=host -v ${{ github.workspace }}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version "${{ github.sha }}-${{ github.run_number }}" --tag "${GITHUB_REF##*/}" --tag "dev"
+          docker run --rm --network=host -v ${{ github.workspace }}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version "${{ github.sha }}-${{ github.run_number }}" --tag "${GITHUB_REF##*/}" --tag ${{ matrix.environment }}
 
       - name: Validate Pact Broker UI
         run: |
           curl -u admin:admin -f http://localhost:9292 || exit 1
-
       - name: Validate Order-Service -> Product-Service Pact Presence
         run: |
           curl -u admin:admin -f http://localhost:9292/pacts/provider/product-service/consumer/order-service/latest || exit 1
-
+  
       - name: Validate Payment-Service -> Order-Service Pact Presence
         run: |
           curl -u admin:admin -f http://localhost:9292/pacts/provider/order-service/consumer/payment-service/latest || exit 1
 
-      # Provider verification for Product Service (as provider for Order Service)
-      - name: Provider Verification - Product Service
+      - name: Run Pact Provider Verification for Product Service
+        id: product_provider_verification
         run: |
           cd services/product
-          mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest -Dpact.verifier.publishResults=true
-
-      # - name: Publish Provider Verification Results - Product Service
-      #   if: success()
-      #   run: |
-      #     docker run --rm --network=host pactfoundation/pact-cli:latest publish-verification-results --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --provider-app-version "${{ github.sha }}-product" --provider product-service --consumer order-service --success
-
-      # Provider verification for Order Service (as provider for Payment Service)
-      - name: Provider Verification - Order Service
+          mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest -Dpact.verifier.publishResults=true -Dpact.provider.tag=${{ matrix.environment }} -Dpact.provider.version=${{ github.sha }}-${{ github.run_number }}
+      
+      - name: Run Pact Provider Verification for Order Service
+        id: order_provider_verification
         run: |
           cd services/order
-          mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest -Dpact.verifier.publishResults=true
+          mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest -Dpact.verifier.publishResults=true -Dpact.provider.tag=${{ matrix.environment }} -Dpact.provider.version=${{ github.sha }}-${{ github.run_number }}
 
-      # - name: Publish Provider Verification Results - Order Service
-      #   if: success()
-      #   run: |
-      #     docker run --rm --network=host pactfoundation/pact-cli:latest publish-verification-results --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --provider-app-version "${{ github.sha }}-order" --provider order-service --consumer payment-service --success
+      - name: Can I Deploy Check for Product Service
+        id: can_i_deploy_product
+        if: ${{ steps.product_provider_verification.outcome }} == 'success'
+        run: |
+          docker run --rm --network=host pactfoundation/pact-cli:latest pact-broker can-i-deploy --pacticipant product-service --version "${{ github.sha }}-${{ github.run_number }}" --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --retry-while-unknown 20 --retry-interval 5 --to-environment ${{ matrix.environment }}
 
-      # Upload Pact files and logs as artifacts for debugging
+      - name: Can I Deploy Check for Order Service
+        id: can_i_deploy_order
+        if: ${{ steps.order_provider_verification.outcome }} == 'success'
+        run: |
+          docker run --rm --network=host pactfoundation/pact-cli:latest pact-broker can-i-deploy --pacticipant order-service --version "${{ github.sha }}-${{ github.run_number }}" --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --retry-while-unknown 20 --retry-interval 5 --to-environment ${{ matrix.environment }}
+
       - name: Upload Pact Files
         if: always()
         uses: actions/upload-artifact@v4
@@ -144,31 +166,7 @@ jobs:
           path: |
             services/product/target/surefire-reports/*.txt
             services/order/target/surefire-reports/*.txt
-
-      # Wait for Provider Verification Results - Product Service
-      # - name: Validate Provider Verification Results - Product Service
-      #   run: |
-      #     for i in {1..10}; do
-      #       VERIF_URL=$(curl -s -u admin:admin http://localhost:9292/pacts/provider/product-service/consumer/order-service/latest | jq -r '._links["pb:latest-verification-result"].href')
-      #       if [ "$VERIF_URL" != "null" ] && curl -s -u admin:admin "$VERIF_URL" | jq -e '.success == true' > /dev/null; then
-      #         echo "Provider verification results for Product Service successfully published to the Pact Broker."; exit 0;
-      #       fi
-      #       echo "Waiting for Product Service verification results to appear in Pact Broker..."; sleep 5;
-      #     done
-      #     echo "Provider verification results for Product Service not found in Pact Broker after waiting."; exit 1
-
-      # Wait for Provider Verification Results - Order Service
-      # - name: Validate Provider Verification Results - Order Service
-      #   run: |
-      #     for i in {1..10}; do
-      #       VERIF_URL=$(curl -s -u admin:admin http://localhost:9292/pacts/provider/order-service/consumer/payment-service/latest | jq -r '._links["pb:latest-verification-result"].href')
-      #       if [ "$VERIF_URL" != "null" ] && curl -s -u admin:admin "$VERIF_URL" | jq -e '.success == true' > /dev/null; then
-      #         echo "Provider verification results for Order Service successfully published to the Pact Broker."; exit 0;
-      #       fi
-      #       echo "Waiting for Order Service verification results to appear in Pact Broker..."; sleep 5;
-      #     done
-      #     echo "Provider verification results for Order Service not found in Pact Broker after waiting."; exit 1
-
+      
       - name: Stop Pact Broker and WireMock containers
         if: always()
         run: |
