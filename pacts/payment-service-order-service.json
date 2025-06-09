@@ -1,0 +1,220 @@
+{
+  "consumer": {
+    "name": "payment-service"
+  },
+  "interactions": [
+    {
+      "description": "a request to create a new order with invalid data",
+      "key": "c6d058fa",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "invalid order data"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": -1.0,
+            "status": ""
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/order"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": "Invalid order data"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "status": 400
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for order by ID",
+      "key": "192e19c6",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "order with ID 501 exists"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/order/501"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "amount": 120.5,
+            "id": 501,
+            "status": "PAID"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request for a non-existent order by ID",
+      "key": "e3b2402d",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "order with ID 999 does not exist"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/order/999"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "error": "Order not found"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "status": 404
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a request to create a new order",
+      "key": "be75690",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "valid order data"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "amount": 99.99,
+            "status": "PENDING"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/order"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "amount": 99.99,
+            "id": 502,
+            "status": "PENDING"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.amount": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "decimal"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "transport": "http",
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.6.15"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "order-service"
+  }
+}

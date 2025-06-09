@@ -1,0 +1,12 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/product/202"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json" },
+    "body": "{\"id\":202,\"name\":\"Free Sample\",\"price\":0.0}"
+  }
+}

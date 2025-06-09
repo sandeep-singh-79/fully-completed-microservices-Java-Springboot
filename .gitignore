@@ -1,1 +1,7 @@
 .idea
+# Pact contract management
+**/target/pacts/
+**/build/pacts/
+**/pacts/
+!/pacts/
+!/pacts/*.json

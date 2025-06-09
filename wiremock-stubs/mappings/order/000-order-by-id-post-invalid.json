@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/order",
+    "bodyPatterns": [
+      {
+        "equalToJson": "{ \"amount\": -1.0, \"status\": \"\" }",
+        "ignoreExtraElements": true
+      }
+    ]
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "error": "Invalid order data"
+    }
+  },
+  "priority": 1
+}

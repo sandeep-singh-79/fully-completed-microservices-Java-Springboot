@@ -73,6 +73,18 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>au.com.dius.pact.provider</groupId>
+			<artifactId>junit5</artifactId>
+			<version>4.6.15</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.github.tomakehurst</groupId>
+			<artifactId>wiremock-jre8</artifactId>
+			<version>2.35.0</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -98,6 +110,30 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.1.2</version>
+				<configuration>
+					<useModulePath>false</useModulePath>
+					<systemPropertyVariables>
+						<PACT_VERIFIER_LOGLEVEL>DEBUG</PACT_VERIFIER_LOGLEVEL>
+						<pact.rootDir>${project.basedir}/../../pacts</pact.rootDir>
+						<pact.verifier.publishResults>true</pact.verifier.publishResults>
+					</systemPropertyVariables>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>au.com.dius.pact.provider</groupId>
+				<artifactId>maven</artifactId>
+				<version>4.3.15</version>
+				<configuration>
+					<pactBrokerUrl>http://localhost:9292</pactBrokerUrl>
+					<pactBrokerUsername>admin</pactBrokerUsername>
+					<pactBrokerPassword>admin</pactBrokerPassword>
+					<publishVerificationResults>true</publishVerificationResults>
 				</configuration>
 			</plugin>
 		</plugins>

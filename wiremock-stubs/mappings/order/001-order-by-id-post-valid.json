@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/order",
+    "bodyPatterns": [
+      { "matchesJsonPath": "$.amount", "equalToJson": "120.5", "ignoreExtraElements": true },
+      { "matchesJsonPath": "$.status", "equalTo": "PAID", "ignoreExtraElements": true }
+    ]
+  },
+  "response": {
+    "status": 201,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "amount": "{{jsonPath request.body '$.amount'}}",
+      "id": 502,
+      "status": "{{jsonPath request.body '$.status'}}"
+    },
+    "transformers": ["response-template"]
+  }
+}

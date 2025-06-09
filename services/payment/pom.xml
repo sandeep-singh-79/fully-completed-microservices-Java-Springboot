@@ -75,6 +75,36 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Pact consumer contract testing dependencies -->
+		<dependency>
+			<groupId>au.com.dius.pact.consumer</groupId>
+			<artifactId>junit5</artifactId>
+			<version>4.6.15</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>au.com.dius.pact</groupId>
+			<artifactId>consumer</artifactId>
+			<version>4.6.15</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.rest-assured</groupId>
+			<artifactId>rest-assured</artifactId>
+			<version>5.3.1</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>5.9.3</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.10.1</version>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -100,6 +130,30 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>au.com.dius.pact.provider</groupId>
+				<artifactId>maven</artifactId>
+				<version>4.3.15</version>
+				<configuration>
+					<pactBrokerUrl>http://localhost:9292</pactBrokerUrl>
+					<pactBrokerUsername>admin</pactBrokerUsername>
+					<pactBrokerPassword>admin</pactBrokerPassword>
+					<publishVerificationResults>true</publishVerificationResults>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.1.2</version>
+				<configuration>
+					<useModulePath>false</useModulePath>
+					<systemPropertyVariables>
+						<PACT_VERIFIER_LOGLEVEL>DEBUG</PACT_VERIFIER_LOGLEVEL>
+						<pact.rootDir>${project.basedir}/../../pacts</pact.rootDir>
+						<pact.verifier.publishResults>true</pact.verifier.publishResults>
+					</systemPropertyVariables>
 				</configuration>
 			</plugin>
 		</plugins>
