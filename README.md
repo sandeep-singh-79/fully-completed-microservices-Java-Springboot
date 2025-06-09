@@ -1,5 +1,8 @@
 # Fully Completed Microservices Project
 
+[![CodeQL](https://github.com/sandeep-singh-79/fully-completed-microservices-Java-Springboot/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/sandeep-singh-79/fully-completed-microservices-Java-Springboot/actions/workflows/github-code-scanning/codeql)
+[![Pact CDC CI](https://github.com/sandeep-singh-79/fully-completed-microservices-Java-Springboot/actions/workflows/pact-cdc.yml/badge.svg)](https://github.com/sandeep-singh-79/fully-completed-microservices-Java-Springboot/actions/workflows/pact-cdc.yml)
+
 ## Overview
 
 This repository contains a collection of fully completed microservices built with Spring Boot version 3.2.5 and Java 17. The project utilizes Spring Cloud version 2023.0.1 for implementing various distributed system patterns and features.
@@ -146,38 +149,96 @@ docker run -d -p <port>:<container-port> <microservice-name>:latest
 2. **Publish Pact Contracts to Pact Broker**
    - (Recommended: Use Docker for cross-platform reliability)
      ```powershell
-     docker run --rm -v ${PWD}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version 1.0.0
+     docker run --rm -v ${PWD}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --consumer-app-version 1.0.0 --tag "${GITHUB_REF##*/}" --tag "dev"
      ```
 
 ### Provider-Side Contract Verification & Publishing
 
-1. **Run Provider Verification Tests**
+1. **Run Provider Verification Tests (and Publish Results)**
    - Product Service (as provider for Order Service):
+
      ```powershell
      cd services/product
-     mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest -Dpactbroker.host=localhost -Dpactbroker.port=9292 -Dpactbroker.username=admin -Dpactbroker.password=admin
+     mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest -Dpact.verifier.publishResults=true -Dpact.provider.tag=dev -Dpact.provider.version=<provider-version>
      ```
+
    - Order Service (as provider for Payment Service):
+
      ```powershell
      cd ../order
-     mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest -Dpactbroker.host=localhost -Dpactbroker.port=9292 -Dpactbroker.username=admin -Dpactbroker.password=admin
+     mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest -Dpact.verifier.publishResults=true -Dpact.provider.tag=dev -Dpact.provider.version=<provider-version>
      ```
-2. **Publish Provider Verification Results to Pact Broker**
-   - (Recommended: Use Docker for cross-platform reliability)
+
+   - Replace `<provider-version>` with the version string you want to use (e.g., the same as the consumer app version or a git SHA).
+
+2. **Validate Provider Verification Results in the Pact Broker**
+   - Use the Pact CLI to check if a version is safe to deploy (as in the GitHub Actions workflow):
+
      ```powershell
-     docker run --rm -v ${PWD}:/workspace pactfoundation/pact-cli:latest broker publish-verification-results --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin --provider-app-version 1.0.0 --success
+     docker run --rm --network=host pactfoundation/pact-cli:latest pact-broker can-i-deploy \
+       --pacticipant <provider-service> --version <provider-version> \
+       --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin \
+       --to-environment dev
      ```
+
+   - This will confirm that all required contracts for the given version and environment have been verified and are deployable.
 
 ### Running All CDC Tests Locally (Recommended Flow)
 
 1. Start the Pact Broker and WireMock:
+
    ```powershell
    docker-compose up -d pact-broker wiremock
    ```
-2. Run all consumer and provider contract tests as above.
-3. Publish all generated pacts and provider verification results as above.
-4. Visit [http://localhost:9292](http://localhost:9292) (admin/admin) to view contracts and verification status.
-5. When finished, stop containers:
+
+2. Ensure the 'dev' environment exists in the Pact Broker (required for environment tagging and can-i-deploy):
+
+   ```powershell
+   docker run --rm --network=host pactfoundation/pact-cli:latest broker create-environment `
+     --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin `
+     --name dev --display-name "Development" --production false
+   ```
+   > If the environment already exists, this command will return an error, which can be safely ignored.
+
+3. Run all consumer contract tests to generate pact files:
+
+   ```powershell
+   cd services/order
+   mvn clean test -Dtest=ProductServiceContractTest
+   cd ../payment
+   mvn clean test -Dtest=OrderServiceContractTest
+   ```
+
+4. Publish all generated pacts to the broker:
+
+   ```powershell
+   docker run --rm -v ${PWD}/pacts:/pacts pactfoundation/pact-cli:latest publish /pacts `
+     --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin `
+     --consumer-app-version <consumer-version> --tag dev
+   ```
+
+5. Run provider verification tests (which will also publish verification results):
+
+   ```powershell
+   cd ../product
+   mvn test -Dtest=com.alibou.pact.provider.ProductProviderPactVerificationTest -Dpact.verifier.publishResults=true -Dpact.provider.tag=dev -Dpact.provider.version=<provider-version>
+   cd ../order
+   mvn test -Dtest=com.alibou.pact.provider.OrderProviderPactVerificationTest -Dpact.verifier.publishResults=true -Dpact.provider.tag=dev -Dpact.provider.version=<provider-version>
+   ```
+
+6. Validate provider verification results in the Pact Broker:
+
+   ```powershell
+   docker run --rm --network=host pactfoundation/pact-cli:latest pact-broker can-i-deploy `
+     --pacticipant <provider-service> --version <provider-version> `
+     --broker-base-url http://localhost:9292 --broker-username admin --broker-password admin `
+     --to-environment dev
+   ```
+
+7. Visit [http://localhost:9292](http://localhost:9292) (admin/admin) to view contracts and verification status.
+
+8. When finished, stop containers:
+
    ```powershell
    docker-compose down
    ```
@@ -187,9 +248,13 @@ docker run -d -p <port>:<container-port> <microservice-name>:latest
 - The `.github/workflows/pact-cdc.yml` workflow automates:
   - Starting Pact Broker and WireMock using docker-compose
   - Waiting for service readiness
-  - Running all consumer and provider contract tests
-  - Publishing pacts and provider verification results to the Pact Broker
-  - Validating the presence and verification status of all contracts
+  - Ensuring the target environment exists in the broker (auto-creation if needed)
+  - Running all consumer contract tests and generating pact files
+  - Publishing pacts to the broker with version and environment tags
+  - Running provider verification for both product and order services, publishing results with version and environment tags
+  - Validating the presence and verification status of all contracts in the broker
+  - Running `can-i-deploy` checks to ensure provider verification results are present and contracts are deployable for the target environment
+  - Uploading pact files and provider logs as workflow artifacts
   - Cleaning up containers at the end
 - The workflow runs on every push and pull request to `main`.
 - See the workflow file for details and step-by-step automation.
